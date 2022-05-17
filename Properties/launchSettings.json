@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "GmodSoundGen": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\Users\\marv7\\Downloads\\weapon_ar_akilo47.all.csv\""
+    }
+  }
+}
