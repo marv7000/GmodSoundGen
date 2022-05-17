@@ -20,9 +20,13 @@ public class SoundGen
             int valueCol = int.Parse(Console.ReadLine());
             Interop.WriteLog("Sound type column: ", Interop.MessageType.Info);
             int typeCol = int.Parse(Console.ReadLine());
+            Interop.WriteLog("Low pitch column: ", Interop.MessageType.Info);
+            int lowCol = int.Parse(Console.ReadLine());
+            Interop.WriteLog("High pitch column: ", Interop.MessageType.Info);
+            int highCol = int.Parse(Console.ReadLine());
             Interop.WriteLog("Skip first line? (y/n) ", Interop.MessageType.Info);
             bool skip = Console.ReadLine() == "y" ? true : false;
-            var file = ReadCSV(args[0], keyCol, valueCol, typeCol, skip);
+            var file = ReadCSV(args[0], keyCol, valueCol, typeCol, skip, lowCol, highCol);
             WriteLua(args[0].Replace(".csv", ".lua"), file);
             Interop.WriteLog("Done!", Interop.MessageType.Info);
             Console.ReadLine();
@@ -41,27 +45,29 @@ public class SoundGen
     /// <param name="keyCol">Column of the keys to read.</param>
     /// <param name="valueCol">Column of the values to read.</param>
     /// <returns>2D string array containing read data.</returns>
-    static string[,] ReadCSV(string file, int keyCol, int valueCol, int typeCol, bool skip)
+    static string[,] ReadCSV(string file, int keyCol, int valueCol, int typeCol, bool skip, int lowCol, int highCol)
     {
         var lines = File.ReadAllLines(file);
         var length = lines.Length;
         if (skip)
             length--;
-        var result = new string[length, 3];
-        
+        var result = new string[length, 5];
+
         for (int i = 0; i < length; i++)
         {
             string? line;
-            
-            if(skip)
-                line = lines[i+1];
+
+            if (skip)
+                line = lines[i + 1];
             else
                 line = lines[i];
-            
+
             var split = line.Split(',');
             result[i, 0] = split[keyCol];
             result[i, 1] = split[valueCol];
             result[i, 2] = split[typeCol];
+            result[i, 3] = split[lowCol];
+            result[i, 4] = split[highCol];
         }
         return result;
     }
@@ -117,15 +123,22 @@ public class SoundGen
                 file.WriteLine("-- File: " + filePath);
 
                 int k = 0;
-                for(int i = 0; i < dict.Keys.Count; i++)
+
+                file.WriteLine($"-- Total length: {dict.Keys.Count}\n");
+                for (int i = 0; i < dict.Keys.Count; i++)
                 {
+                    // Temporary, we only want foley sound to be written
                     if (csv[offset[i], 2] != "foley_wpn_plr")
                         continue;
+
+                    file.WriteLine($"-- Sound: {i}");
                     file.WriteLine(@"sound.Add({");
                     Interop.WriteLog($"Processing element {dict.Keys.ElementAt(i)}", Interop.MessageType.Debug);
                     file.WriteLine($"\tname = \"{dict.Keys.ElementAt(i)}\",");
                     if (csv[offset[i], 2] == "foley_wpn_plr")
                     {
+                        if (k >= 10)
+                            k = 0;
                         k++;
                         file.WriteLine($"\tchannel = CHAN_WPNFOLEY + {k},");
                     }
@@ -135,7 +148,7 @@ public class SoundGen
                     }
                     file.WriteLine("\tlevel = 140,");
                     file.WriteLine("\tvolume = 1,");
-                    file.WriteLine("\tpitch = {90,110},");
+                    file.WriteLine($"\tpitch = {{{(int)(float.Parse(csv[offset[i], 3]) / 24.0f*256) - 28},{(int)(float.Parse(csv[offset[i], 4]) / 24.0f*256) - 28}}},");
                     file.WriteLine("\tsound = {");
                     for (int j = 0; j < dict.Values.ElementAt(i).Count; j++)
                     {
